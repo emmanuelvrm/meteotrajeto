@@ -318,13 +318,9 @@ function evaluate(){
   const best=Object.keys(rows).sort((a,b)=>rows[a].score-rows[b].score)[0];
   return{now,dep,tf,rain,mm,wind,temp,wo,wd,rows,best,lim,G,inc,brk,conf};
 }
-function limitDate(dep){
-  const [h,m]=S.meta.split(":").map(Number);
-  const l=new Date(dep);l.setHours(h,m+15,0,0);
-  if(l<dep)l.setDate(l.getDate()+1);
-  return l;
-}
-function metaDate(dep){const [h,m]=S.meta.split(":").map(Number);const d=new Date(dep);d.setHours(h,m,0,0);if(d<dep)d.setDate(d.getDate()+1);return d}
+// Meta de hoje vale até 3 h depois do horário (aí o atraso é real); depois disso, considera a meta de amanhã.
+function metaDate(dep){const [h,m]=S.meta.split(":").map(Number);const d=new Date(dep);d.setHours(h,m,0,0);if(dep.getTime()>d.getTime()+3*3600e3)d.setDate(d.getDate()+1);return d}
+function limitDate(dep){return new Date(metaDate(dep).getTime()+15*60000)}
 function defaultMeta(){return new Date().getHours()<10?"08:00":"13:00"}
 
 // ---------- Render ----------
@@ -337,9 +333,9 @@ function render(){
   // status
   const meta=metaDate(E.dep),lim=E.lim,over=(M.eta-lim)/60000,toMeta=(M.eta-meta)/60000;
   const st=$("status");
-  if(M.eta<=meta){st.className="status ok";st.innerHTML=`<b>✔ Chegada no horário previsto (sem atraso)</b><span>${MODES[sel].n}: ETA às ${hhmm(M.eta)} (${Math.round(-toMeta)} min de folga em relação à meta de ${S.meta}).</span> <span class="mono" style="float:right;font-size:12px">Meta: ${S.meta} | Limite: ${hhmm(lim)}</span>`}
+  if(M.eta<=meta){st.className="status ok";st.innerHTML=`<b>✔ Chegada no horário previsto (sem atraso)</b><span>${MODES[sel].n}: ETA às ${hhmm(M.eta)} (${toMeta<-180?`meta de ${S.meta} de amanhã, sem risco de atraso`:Math.round(-toMeta)+" min de folga em relação à meta de "+S.meta}).</span> <span class="mono" style="float:right;font-size:12px">Meta: ${S.meta} | Limite: ${hhmm(lim)}</span>`}
   else if(M.eta<=lim){st.className="status warn";st.innerHTML=`<b>⏱ Dentro da margem de tolerância (${Math.round((lim-M.eta)/60000)} min restantes)</b><span>${MODES[sel].n}: ETA às ${hhmm(M.eta)}. Dentro do limite (${hhmm(lim)}), mas sem folga.</span>`}
-  else{st.className="status bad";st.innerHTML=`<b>✖ Atraso previsto (${Math.round(over)} min além do limite)</b><span>${MODES[sel].n}: ETA às ${hhmm(M.eta)}; limite ${hhmm(lim)}. ${E.best!==sel?"Veja o modal recomendado abaixo.":"Nenhum modal chega a tempo; saia o quanto antes."}</span>`}
+  else{st.className="status bad";st.innerHTML=`<b>✖ Atraso previsto (${Math.round(over)} min além do limite)</b><span>${MODES[sel].n}: ETA às ${hhmm(M.eta)}; limite ${hhmm(lim)}. ${E.dep>meta?`A meta de ${S.meta} de hoje já passou. `:""}${E.best!==sel?"Veja o modal recomendado abaixo.":"Nenhum modal chega a tempo; saia o quanto antes."}</span>`}
   $("depTag").textContent="⏰ Partida em +15 min";
   $("qTag").textContent=`Trânsito: ${E.tf>=1.5?"pesado":E.tf>=1.2?"moderado":"fluindo"} (estimado ×${E.tf.toFixed(2)})`;
   $("dep").textContent=hhmm(E.dep);$("eta").textContent=hhmm(M.eta);
