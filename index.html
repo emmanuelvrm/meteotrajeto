@@ -63,6 +63,15 @@ input,select{font:inherit;color:var(--tx);background:var(--card2);border:1px sol
 .btn{min-height:42px}
 .form{display:grid;grid-template-columns:170px 90px 1fr auto;gap:8px}
 .camform{grid-template-columns:150px 1fr auto}
+.opt{background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:12px;font-size:14px}
+.opt.off{opacity:.65}
+.opt .chip{display:inline-block;font-size:12px;border-radius:8px;padding:2px 8px;margin:4px 6px 0 0;border:1px solid var(--line)}
+.chip.y{color:var(--ok);border-color:#14532d}.chip.n{color:#ff6b81;border-color:#7f1d2b}.chip.q{color:var(--mut)}
+.ride{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.ride a{display:block;text-align:center;text-decoration:none;border-radius:14px;padding:12px 10px;font-weight:700;font-size:16px;line-height:1.3}
+.ride a small{display:block;font-weight:600;font-size:13px}
+.r99{background:#14161f;color:#ffd400;border:2px solid #ffd400}
+.rub{background:#fff;color:#000;border:2px solid #fff}
 .alrt{display:flex;gap:10px;justify-content:space-between;align-items:flex-start;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:14px}
 .alrt.auto{border-left:3px solid var(--warn)}.alrt.man{border-left:3px solid var(--bad)}
 .linkgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px}
@@ -103,6 +112,7 @@ iframe.waze{width:100%;height:340px;border:0;border-radius:14px}
     <div class="mut" style="margin:18px 0 10px;font-size:14px">Melhor meio de transporte agora (toque para comparar):</div>
     <div class="modes" id="modes"></div>
     <ul class="reasons" id="reasons" style="margin-top:14px"></ul>
+    <div id="rideBox" style="display:none"></div>
     <div class="info" id="etaBreak" style="margin-top:12px"></div>
     <button class="alert" id="alertBtn" style="margin-top:14px"></button>
     <div class="grid2" style="margin-top:12px">
@@ -115,7 +125,9 @@ iframe.waze{width:100%;height:340px;border:0;border-radius:14px}
     <h2>🚌 Ônibus</h2>
     <div class="mut" style="font-size:14px;margin:4px 0 10px">Estimativa de tempo (caminhada + espera + trajeto). Linhas e horários reais abrem no Google Maps com o seu endereço.</div>
     <div id="busLines" style="margin-bottom:10px;font-size:14px"></div>
-    <a id="busLink" class="btn" style="display:inline-block;text-decoration:none" target="_blank" rel="noopener">Ver linhas de ônibus agora ↗</a>
+    <div id="busOpts" style="display:grid;gap:10px;margin-bottom:12px"></div>
+    <a id="busLink" class="btn" style="display:block;text-align:center;text-decoration:none;font-weight:600" target="_blank" rel="noopener">Ver linhas de ônibus agora ↗</a>
+    <div id="busNote" class="mut" style="font-size:12px;margin-top:8px"></div>
   </div>
 
   <div class="card" id="alertsCard">
@@ -199,6 +211,14 @@ const TTL=120*60000;
 const ALERT_TYPES={acidente:["🚨 Acidente",15],retencao:["🐢 Retenção",10],obra:["🚧 Obra",10],interdicao:["⛔ Via interditada",30],alagamento:["🌊 Alagamento",20],normal:["✅ Fluxo normal (câmera)",0]};
 let ALERTS=store.get("mt_alerts",[]).filter(a=>Date.now()-a.t<TTL),CAMS=store.get("mt_cams",[]),GKEY=store.get("mt_gkey","");
 const activeAlerts=()=>ALERTS.filter(a=>Date.now()-a.t<TTL);
+// Tarifas e horários (Move Metropolitano — site não oficial, quadro de 21/09/2026; tarifa 6110/6120 conforme reajuste do DER-MG; BH conforme tarifa de 01/01/2026)
+const BH_FARE=6.25;
+const BUSLINES={
+  "6340":{fare:11.25,name:"Florença / Belo Horizonte",win:[[4,0,7,55],[14,0,20,0]]},
+  "6110":{fare:8.95,name:"Ribeirão das Neves / Venda Nova",win:[[3,15,5,55],[18,20,22,50]]},
+  "6120":{fare:8.95,name:"Ribeirão das Neves / Venda Nova / Ceasa",win:null}
+};
+const brl=v=>"R$ "+v.toFixed(2).replace(".",",");
 
 // ---------- Dados ----------
 async function jget(url,ms=9000){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);try{const r=await fetch(url,{signal:c.signal});if(!r.ok)throw 0;return await r.json()}finally{clearTimeout(t)}}
@@ -338,7 +358,7 @@ function render(){
   const AU=autoAlerts(E),nAl=AU.length+E.inc.filter(a=>a.min>0).length;
   $("alertBtn").className="alert"+(nAl?" red":"");
   $("alertBtn").innerHTML=`⚠ Alertas de rota: ${nAl?nAl+" ativo"+(nAl>1?"s":""):"nenhum ativo"} <span class="mut" style="font-weight:400;display:block;font-size:12px;margin-top:2px;color:${nAl?"#ffd5db":""}">Toque para ver, adicionar ocorrências e consultar fontes ao vivo</span>`;
-  renderAlerts(E,AU);renderExtra(E);
+  renderAlerts(E,AU);renderExtra(E);renderRide(E);renderBus(E);
   const wet=E.wo.mm>0.1||E.wd.mm>0.1||E.rain>=50;
   $("road").innerHTML=wet?`<span style="color:var(--warn)">Pista molhada — reduza a velocidade</span>`:`<span style="color:var(--ok)">Pista seca e boa aderência</span>`;
   $("drv").textContent=E.wind>35?"Vento forte no corredor: cuidado em viadutos":E.rain>=40?"Atenção redobrada e distância maior":"Visibilidade normal no corredor metropolitano";
@@ -422,6 +442,38 @@ $("camAdd").onclick=()=>{
   $("camName").value="";$("camUrl").value="";renderCams();
 };
 setInterval(()=>document.querySelectorAll("#camList img[data-src]").forEach(im=>{const u=im.dataset.src;im.src=u+(u.includes("?")?"&":"?")+"_="+Date.now()}),30000);
+function renderRide(E){
+  const sel=S.modeSel||E.best,box=$("rideBox");
+  if(sel!=="carro"&&sel!=="moto"){box.style.display="none";return}
+  const km=E.G.drive?E.G.drive.km:S.route.km;
+  const surge=E.tf>=1.5?1.2:E.rain>=60?1.15:1;
+  let u=Math.max(7,(1.8+1.3*km+0.25*E.rows.carro.min)*surge); // UberX BH: base 1,80 + 1,30/km + 0,25/min
+  if(sel==="moto")u=Math.max(5,u*0.6);
+  const p=u*0.9,rg=v=>`R$ ${Math.round(v*0.88)}–${Math.round(v*1.12)}`,o=orig(),d=dest();
+  const uber=`https://m.uber.com/ul/?action=setPickup&pickup%5Blatitude%5D=${o.lat}&pickup%5Blongitude%5D=${o.lon}&dropoff%5Blatitude%5D=${d.lat}&dropoff%5Blongitude%5D=${d.lon}`;
+  box.style.display="block";
+  box.innerHTML=`<div class="ride"><a class="r99" href="https://99app.com/" target="_blank" rel="noopener">${sel==="moto"?"99Moto":"99Pop"}<small>${rg(p)}</small></a><a class="rub" href="${uber}" target="_blank" rel="noopener">${sel==="moto"?"Uber Moto":"Uber"}<small>${rg(u)}</small></a></div><div class="mut" style="font-size:12px;margin-top:6px">Valor estimado por fórmula (UberX em BH: R$ 1,80 + R$ 1,30/km + R$ 0,25/min${surge>1?`, com acréscimo de ${Math.round((surge-1)*100)}% por demanda`:""}; 99 ≈ 10% menor; moto ≈ 60% do carro). O preço real aparece no app.</div>`;
+}
+function setF315(v){const n=parseFloat(String(v).replace(",","."));store.set("mt_f315",isFinite(n)&&n>0?n:"");render()}
+function renderBus(E){
+  const f315=parseFloat(store.get("mt_f315",""))||0;
+  const dep=E.dep,t=dep.getHours()*60+dep.getMinutes(),wk=dep.getDay()>=1&&dep.getDay()<=5;
+  const av=c=>{const L=BUSLINES[c];
+    if(S.invert)return["q","sentido Venda Nova → Neves: confira o horário"];
+    if(!L.win)return["q","horário a confirmar"];
+    if(!wk)return["q","fim de semana: horários diferentes"];
+    if(L.win.some(w=>t>=w[0]*60+w[1]&&t<=w[2]*60+w[3]))return["y","há partidas neste horário"];
+    const nx=L.win.find(w=>t<w[0]*60+w[1]);
+    return["n",nx?`sem partidas agora; próxima faixa ${pad(nx[0])}:${pad(nx[1])}`:"sem mais partidas hoje"]};
+  const chip=c=>{const [k,tx]=av(c);return `<span class="chip ${k}">${c}: ${tx}</span>`};
+  const fB=BUSLINES["6340"].fare+BUSLINES["6110"].fare;
+  const okB=!(av("6340")[0]==="n");
+  const A=`<div class="opt"><b>Principal:</b> ${S.invert?"linha que desça a Av. Padre Pedro Pinto + 315":"315 + linha que suba a Av. Padre Pedro Pinto"}<div class="mut" style="margin-top:4px">${S.invert?"No sentido contrário, o ponto de baldeação é o mesmo.":"Baldeação no ponto de integração; use qualquer linha de BH que passe na Av. Padre Pedro Pinto."}</div><div style="margin-top:6px">Tarifa estimada: <b>${f315?brl(f315+BH_FARE):brl(BH_FARE)+" + tarifa do 315"}</b> <span class="mut">(BH ${brl(BH_FARE)})</span></div><div class="row" style="margin-top:6px;font-size:13px"><span class="mut">Tarifa do 315 (R$):</span><input style="width:90px;min-height:36px;padding:6px 10px" inputmode="decimal" value="${f315||""}" placeholder="a confirmar" onchange="setF315(this.value)" aria-label="Tarifa da linha 315"></div></div>`;
+  const B=`<div class="opt ${okB?"":"off"}"><b>Alternativa se o 315 demorar:</b> 6340 → Trevo de Neves → 6110 ou 6120<div style="margin-top:6px">Tarifa estimada: <b>${brl(fB)}</b> <span class="mut">(6340 ${brl(BUSLINES["6340"].fare)} + 6110/6120 ${brl(BUSLINES["6110"].fare)}; sem integração tarifária confirmada)</span></div><div>${chip("6340")}${chip("6110")}${chip("6120")}</div></div>`;
+  $("busOpts").innerHTML=A+B;
+  $("busLink").textContent=`Ver linhas e horários ao vivo ↗ · estimado ${f315?brl(f315+BH_FARE):brl(fB)}`;
+  $("busNote").innerHTML=`Tarifas: <a target="_blank" rel="noopener" href="https://www.der.mg.gov.br/tabelas-de-transporte-metropolitano">tabelas do DER-MG</a> e <a target="_blank" rel="noopener" href="https://movemetropolitano.com.br/6110-ribeirao-das-neves-venda-nova/">Move Metropolitano</a> (site não oficial; horários atualizados em 21/09/2026). A linha 315 não consta nessas fontes: informe a tarifa acima.`;
+}
 renderCams();
 S.meta=defaultMeta();
 refresh(true);
