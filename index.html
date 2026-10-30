@@ -2,7 +2,8 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#070b1a">
 <title>MeteoTrajeto</title>
 <style>
 :root{--bg:#070b1a;--card:#0d1430;--card2:#111a3a;--line:#1f2b55;--tx:#e8ecf8;--mut:#8a96bd;--blue:#3b9cf2;--ok:#34d399;--warn:#fbbf24;--bad:#e5384f}
@@ -50,13 +51,29 @@ button{font:inherit;color:var(--tx);cursor:pointer}
 .hr.dep{border-color:var(--blue)}
 .days{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
 .reasons li{margin-left:18px;font-size:14px;margin-top:4px}
-.modal{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;padding:16px;z-index:9}
-.modal.open{display:flex}.modal .card{max-width:480px;width:100%}
 a{color:var(--blue)}
 #load{position:fixed;inset:0;background:var(--bg);display:grid;place-items:center;z-index:20;text-align:center;transition:opacity .4s}
 .radar{width:90px;height:90px;border-radius:50%;border:2px solid var(--blue);margin:0 auto 14px;background:conic-gradient(from 0deg,#3b9cf277,transparent 40%);animation:sp 1.4s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
-@media(max-width:520px){.addr{grid-template-columns:1fr}.swap{justify-self:center;transform:rotate(90deg)}.modes{grid-template-columns:repeat(2,1fr)}.big{font-size:38px}}
+html{-webkit-text-size-adjust:100%}
+body{padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))}
+.big{font-size:clamp(30px,8vw,44px)}.temp{font-size:clamp(40px,10vw,52px)}
+h1{font-size:clamp(21px,5.5vw,26px)}
+input,select{font:inherit;color:var(--tx);background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-width:0;min-height:42px}
+.btn{min-height:42px}
+.form{display:grid;grid-template-columns:170px 90px 1fr auto;gap:8px}
+.camform{grid-template-columns:150px 1fr auto}
+.alrt{display:flex;gap:10px;justify-content:space-between;align-items:flex-start;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:14px}
+.alrt.auto{border-left:3px solid var(--warn)}.alrt.man{border-left:3px solid var(--bad)}
+.linkgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px}
+.linkgrid>*{width:100%;text-align:center;text-decoration:none;display:block}
+iframe.waze{width:100%;height:340px;border:0;border-radius:14px}
+.days{grid-template-columns:repeat(5,minmax(66px,1fr));overflow-x:auto}
+.wrap>*{min-width:0}
+@media(max-width:700px){#wx{grid-template-columns:1fr}}
+@media(max-width:640px){.form{grid-template-columns:1fr 1fr}.form .full{grid-column:1/-1}.camform{grid-template-columns:1fr}}
+@media(max-width:520px){.addr{grid-template-columns:1fr}.swap{justify-self:center;transform:rotate(90deg)}.modes{grid-template-columns:repeat(2,1fr)}.card{padding:14px;border-radius:16px}.seg{width:100%}.seg button{flex:1;padding:9px 6px;font-size:12px}iframe.waze{height:280px}}
+@media(max-width:420px){.grid2:not([style*="repeat"]){grid-template-columns:1fr}.logo{width:40px;height:40px;font-size:20px}}
 </style>
 </head>
 <body>
@@ -78,7 +95,7 @@ a{color:var(--blue)}
 
   <div class="card">
     <div class="row" style="gap:8px"><span class="tag" id="depTag"></span><span class="tag" id="qTag"></span></div>
-    <div class="row" style="gap:28px;margin-top:12px;align-items:flex-end">
+    <div class="row" style="gap:14px 28px;margin-top:12px;align-items:flex-end">
       <div><div class="mut mono" style="font-size:12px">SAÍDA PREVISTA</div><div class="big" id="dep"></div></div>
       <div><div class="mut mono eta" style="font-size:12px">CHEGADA ESTIMADA (ETA)</div><div class="big eta" id="eta"></div></div>
       <div class="mut" style="font-size:14px">Duração: <b id="dur" style="color:var(--tx)"></b><br>Distância: <b class="mono" id="dist" style="color:var(--tx)"></b></div>
@@ -86,6 +103,7 @@ a{color:var(--blue)}
     <div class="mut" style="margin:18px 0 10px;font-size:14px">Melhor meio de transporte agora (toque para comparar):</div>
     <div class="modes" id="modes"></div>
     <ul class="reasons" id="reasons" style="margin-top:14px"></ul>
+    <div class="info" id="etaBreak" style="margin-top:12px"></div>
     <button class="alert" id="alertBtn" style="margin-top:14px"></button>
     <div class="grid2" style="margin-top:12px">
       <div class="info"><small>Condição do asfalto</small><div id="road"></div></div>
@@ -96,7 +114,54 @@ a{color:var(--blue)}
   <div class="card" id="busCard" style="display:none">
     <h2>🚌 Ônibus</h2>
     <div class="mut" style="font-size:14px;margin:4px 0 10px">Estimativa de tempo (caminhada + espera + trajeto). Linhas e horários reais abrem no Google Maps com o seu endereço.</div>
+    <div id="busLines" style="margin-bottom:10px;font-size:14px"></div>
     <a id="busLink" class="btn" style="display:inline-block;text-decoration:none" target="_blank" rel="noopener">Ver linhas de ônibus agora ↗</a>
+  </div>
+
+  <div class="card" id="alertsCard">
+    <div class="row sp"><h2>🚨 Alertas e ocorrências</h2><span class="mut" style="font-size:12px">entram no cálculo do ETA (expiram em 2 h)</span></div>
+    <div id="alertList" style="display:grid;gap:8px;margin-top:12px"></div>
+    <div class="form" style="margin-top:12px">
+      <select id="alType" aria-label="Tipo de ocorrência"><option value="acidente">🚨 Acidente</option><option value="retencao">🐢 Retenção</option><option value="obra">🚧 Obra</option><option value="interdicao">⛔ Via interditada</option><option value="alagamento">🌊 Alagamento</option><option value="normal">✅ Fluxo normal (câmera)</option></select>
+      <input id="alMin" type="number" min="0" max="60" value="15" aria-label="Minutos de atraso">
+      <input id="alText" class="full" maxlength="140" placeholder="Onde? (ex.: BR-040 sentido BH, altura do km 515)">
+      <button class="btn full" id="alAdd">Adicionar</button>
+    </div>
+    <div class="mut" style="font-size:13px;margin:16px 0 8px">Relatos recentes em redes e fóruns (abre a busca já ordenada por mais recentes):</div>
+    <div class="linkgrid">
+      <a class="btn" target="_blank" rel="noopener" href="https://x.com/search?q=(BR-040%20OR%20LMG-806%20OR%20Vilarinho%20OR%20%22Padre%20Pedro%20Pinto%22)%20(acidente%20OR%20tr%C3%A2nsito%20OR%20engarrafamento)&f=live">X / Twitter ↗</a>
+      <a class="btn" target="_blank" rel="noopener" href="https://www.reddit.com/search/?q=BR-040%20tr%C3%A2nsito&sort=new&t=day">Reddit ↗</a>
+      <a class="btn" target="_blank" rel="noopener" href="https://www.facebook.com/search/posts?q=BR-040%20tr%C3%A2nsito%20Ribeir%C3%A3o%20das%20Neves">Facebook ↗</a>
+      <a class="btn" target="_blank" rel="noopener" href="https://www.google.com/search?q=BR-040+acidente+Ribeir%C3%A3o+das+Neves+Venda+Nova&tbs=qdr:h">Google (última hora) ↗</a>
+    </div>
+  </div>
+
+  <div class="card" id="liveCard">
+    <h2>📡 Trânsito ao vivo</h2>
+    <div class="linkgrid" style="margin-top:12px">
+      <a class="btn" id="gmapsLink" target="_blank" rel="noopener">Google Maps — trânsito ↗</a>
+      <a class="btn" id="wazeLink" target="_blank" rel="noopener">Waze — rota ao vivo ↗</a>
+      <button class="btn" id="wazeBtn">Carregar mapa Waze ao vivo</button>
+    </div>
+    <div id="wazeBox" style="margin-top:12px"></div>
+    <div class="info" style="margin-top:14px">
+      <small>Google Routes API (opcional) — ETA com trânsito real e linhas de ônibus</small>
+      <div class="row" style="margin-top:8px"><input id="gkey" type="password" placeholder="Cole sua chave da API" style="flex:1;min-width:160px" autocomplete="off"><button class="btn" id="gSave">Salvar</button><button class="btn" id="gClear">Remover</button></div>
+      <div id="gStatus" class="mut" style="font-size:13px;margin-top:8px"></div>
+      <div class="mut" style="font-size:12px;margin-top:6px">A chave fica só neste navegador. No Google Cloud, restrinja-a ao site https://emmanuelvrm.github.io/* e à Routes API.</div>
+    </div>
+    <div class="mut" style="font-size:12px;margin-top:10px">Waze e redes sociais não liberam leitura direta por páginas web; por isso aparecem como mapa embutido e buscas. Ocorrências que você vir lá entram no ETA pelo formulário de alertas.</div>
+  </div>
+
+  <div class="card" id="camCard">
+    <h2>📹 Câmeras públicas na rota</h2>
+    <div class="mut" style="font-size:13px;margin:4px 0 10px">Adicione o endereço de uma imagem (atualiza a cada 30 s) ou de uma página de transmissão. Fica salvo só neste navegador.</div>
+    <div id="camList" style="display:grid;gap:10px"></div>
+    <div class="form camform" style="margin-top:12px">
+      <input id="camName" placeholder="Nome (ex.: BR-040 km 515)" maxlength="40">
+      <input id="camUrl" placeholder="https://…">
+      <button class="btn" id="camAdd">Adicionar</button>
+    </div>
   </div>
 
   <div class="grid2" id="wx"></div>
@@ -107,7 +172,6 @@ a{color:var(--blue)}
   <div class="mut" style="font-size:12px;text-align:center;padding:8px">Clima: Open-Meteo • Rota: OSRM/OpenStreetMap • Trânsito: estimativa por horário (sem API em tempo real) • <span id="upd"></span></div>
 </div>
 
-<div class="modal" id="modal"><div class="card"><div class="row sp"><h2>Ocorrências no trajeto</h2><button class="btn" onclick="closeM()">✕</button></div><div id="modalBody" style="margin-top:12px"></div></div></div>
 
 <script>
 // ---------- Configuração ----------
@@ -115,7 +179,7 @@ const PLACES={
   florenca:{label:"Rua Sessenta e Seis, 105 — Florença, Ribeirão das Neves",short:"Bairro Florença",city:"Ribeirão das Neves",alt:830,lat:-19.7769,lon:-44.0911,q:"Rua Sessenta e Seis 105, Florença, Ribeirão das Neves, MG"},
   venda:{label:"Av. Padre Pedro Pinto, 1500 — Venda Nova, BH",short:"Região de Venda Nova",city:"Belo Horizonte",alt:780,lat:-19.8161,lon:-43.9546,q:"Avenida Padre Pedro Pinto 1500, Venda Nova, Belo Horizonte, MG"}
 };
-const FALLBACK={km:24,min:38}; // se OSRM estiver indisponível
+const FALLBACK={km:17.3,min:20}; // se OSRM estiver indisponível
 const MODES={
   carro:{ic:"🚗",n:"Carro"},moto:{ic:"🏍️",n:"Moto"},onibus:{ic:"🚌",n:"Ônibus"},bike:{ic:"🚴",n:"Bike"}
 };
@@ -129,6 +193,12 @@ const hhmm=d=>pad(d.getHours())+":"+pad(d.getMinutes());
 const dm=m=>{m=Math.round(m);return m>=60?Math.floor(m/60)+"h "+pad(m%60)+"min":m+" min"};
 const orig=()=>S.invert?PLACES.venda:PLACES.florenca;
 const dest=()=>S.invert?PLACES.florenca:PLACES.venda;
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const TTL=120*60000;
+const ALERT_TYPES={acidente:["🚨 Acidente",15],retencao:["🐢 Retenção",10],obra:["🚧 Obra",10],interdicao:["⛔ Via interditada",30],alagamento:["🌊 Alagamento",20],normal:["✅ Fluxo normal (câmera)",0]};
+let ALERTS=store.get("mt_alerts",[]).filter(a=>Date.now()-a.t<TTL),CAMS=store.get("mt_cams",[]),GKEY=store.get("mt_gkey","");
+const activeAlerts=()=>ALERTS.filter(a=>Date.now()-a.t<TTL);
 
 // ---------- Dados ----------
 async function jget(url,ms=9000){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);try{const r=await fetch(url,{signal:c.signal});if(!r.ok)throw 0;return await r.json()}finally{clearTimeout(t)}}
@@ -139,8 +209,30 @@ async function loadWeather(p){
 async function loadRoute(){
   const a=PLACES.florenca,b=PLACES.venda;
   const [p,q]=S.invert?[b,a]:[a,b];
-  try{const j=await jget(`https://router.project-osrm.org/route/v1/driving/${p.lon},${p.lat};${q.lon},${q.lat}?overview=false`);const r=j.routes[0];return{km:r.distance/1000,min:r.duration/60,live:true}}
-  catch(e){return{km:FALLBACK.km,min:FALLBACK.min,live:false}}
+  let res;
+  try{const j=await jget(`https://router.project-osrm.org/route/v1/driving/${p.lon},${p.lat};${q.lon},${q.lat}?overview=false`);const r=j.routes[0];res={km:r.distance/1000,min:r.duration/60,live:true}}
+  catch(e){res={km:FALLBACK.km,min:FALLBACK.min,live:false}}
+  res.g={};
+  if(GKEY){
+    const dep=new Date(Date.now()+15*60000);
+    const [d,t]=await Promise.allSettled([gRoutes("DRIVE",dep),gRoutes("TRANSIT",dep)]);
+    if(d.status==="fulfilled"){res.g.drive=d.value;res.km=d.value.km}else res.gerr=String(d.reason&&d.reason.message||d.reason);
+    if(t.status==="fulfilled")res.g.transit=t.value;
+  }
+  return res;
+}
+async function gRoutes(mode,dep){
+  const [p,q]=S.invert?[PLACES.venda,PLACES.florenca]:[PLACES.florenca,PLACES.venda];
+  const body={origin:{location:{latLng:{latitude:p.lat,longitude:p.lon}}},destination:{location:{latLng:{latitude:q.lat,longitude:q.lon}}},travelMode:mode,languageCode:"pt-BR",units:"METRIC",departureTime:dep.toISOString()};
+  if(mode==="DRIVE")body.routingPreference="TRAFFIC_AWARE";
+  const mask=mode==="DRIVE"?"routes.duration,routes.staticDuration,routes.distanceMeters":"routes.duration,routes.distanceMeters,routes.legs.steps.transitDetails";
+  const r=await fetch("https://routes.googleapis.com/directions/v2:computeRoutes",{method:"POST",headers:{"Content-Type":"application/json","X-Goog-Api-Key":GKEY,"X-Goog-FieldMask":mask},body:JSON.stringify(body)});
+  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error((e.error&&e.error.message)||("HTTP "+r.status))}
+  const rt=((await r.json()).routes||[])[0];if(!rt)throw new Error("sem rota para este modo");
+  const out={min:parseFloat(rt.duration)/60,km:rt.distanceMeters/1000};
+  if(rt.staticDuration)out.staticMin=parseFloat(rt.staticDuration)/60;
+  if(mode==="TRANSIT")out.lines=[...new Set((rt.legs||[]).flatMap(l=>(l.steps||[]).map(s=>{const t=s.transitDetails&&s.transitDetails.transitLine;return t&&(t.nameShort||t.name)}).filter(Boolean)))];
+  return out;
 }
 async function load(){
   $("loadtxt").textContent="Consultando clima e rota…";
@@ -175,13 +267,21 @@ function evaluate(){
   const tf=trafficFactor(dep);
   const wo=wxAt(S.data.o,dep),wd=wxAt(S.data.d,dep);
   const rain=Math.max(wo.pp,wd.pp),mm=Math.max(wo.mm,wd.mm),wind=Math.max(wo.wind,wd.wind),temp=Math.min(wo.temp,wd.temp);
-  const R=S.route,car=R.min*tf;
+  const R=S.route,G=R.g||{};
+  const wf=mm>=2?1.15:mm>=0.3?1.08:1; // chuva reduz a velocidade
+  const inc=activeAlerts(),D=Math.min(60,inc.reduce((s,a)=>s+a.min,0));
+  const base=G.drive?G.drive.min:R.min*tf;
+  const src=G.drive?"Rota Google com trânsito ao vivo":"Rota OSRM × padrão de horário";
+  const wxAdd=base*(wf-1);
+  const busBase=G.transit?G.transit.min:8+10+Math.max(base*1.35,R.min*1.3)+8; // caminhada + espera + trajeto + caminhada
   const T={
-    carro:{min:car},
-    moto:{min:car*0.78},
-    onibus:{min:8+10+Math.max(car*1.35,R.min*1.3)+8}, // caminhada + espera + trajeto + caminhada
-    bike:{min:R.km/17*60}
+    carro:{min:base+wxAdd+D},
+    moto:{min:(base+wxAdd)*0.8+D*0.6},
+    onibus:{min:busBase+wxAdd*0.5+D*0.8},
+    bike:{min:R.km/17*60+D*0.2}
   };
+  const brk=[{l:src,v:base},{l:"Efeito da chuva",v:wxAdd,plus:1},{l:`Ocorrências ativas (${inc.length})`,v:D,plus:1}];
+  const conf=G.drive?"alta":inc.length?"média":"baixa";
   // limite de pontualidade
   const lim=limitDate(dep);
   const rows={};
@@ -196,7 +296,7 @@ function evaluate(){
     rows[k]={min:T[k].min,eta,late,score:T[k].min+pen+(late?500:0),pen};
   }
   const best=Object.keys(rows).sort((a,b)=>rows[a].score-rows[b].score)[0];
-  return{now,dep,tf,rain,mm,wind,temp,wo,wd,rows,best,lim};
+  return{now,dep,tf,rain,mm,wind,temp,wo,wd,rows,best,lim,G,inc,brk,conf};
 }
 function limitDate(dep){
   const [h,m]=S.meta.split(":").map(Number);
@@ -235,9 +335,10 @@ function render(){
   if(E.rows.bike.pen>=40)w.push("🚴 Bike pouco viável (distância e/ou clima).");
   $("reasons").innerHTML=w.map(x=>`<li>${x}</li>`).join("");
   // alerta
-  const heavy=E.tf>=1.5;
-  $("alertBtn").className="alert"+((heavy||E.rain>=60||E.wind>40)?" red":"");
-  $("alertBtn").innerHTML=`⚠ Alertas de rota: ${(heavy||E.rain>=60||E.wind>40)?"atenção — "+[heavy&&"horário de pico",E.rain>=60&&"chuva provável",E.wind>40&&"vento forte"].filter(Boolean).join(", "):"nenhum alerta por clima/horário"} <span class="mut" style="font-weight:400;display:block;font-size:12px;margin-top:2px">Toque para abrir acidentes/obras em tempo real (Waze / Google Maps)</span>`;
+  const AU=autoAlerts(E),nAl=AU.length+E.inc.filter(a=>a.min>0).length;
+  $("alertBtn").className="alert"+(nAl?" red":"");
+  $("alertBtn").innerHTML=`⚠ Alertas de rota: ${nAl?nAl+" ativo"+(nAl>1?"s":""):"nenhum ativo"} <span class="mut" style="font-weight:400;display:block;font-size:12px;margin-top:2px;color:${nAl?"#ffd5db":""}">Toque para ver, adicionar ocorrências e consultar fontes ao vivo</span>`;
+  renderAlerts(E,AU);renderExtra(E);
   const wet=E.wo.mm>0.1||E.wd.mm>0.1||E.rain>=50;
   $("road").innerHTML=wet?`<span style="color:var(--warn)">Pista molhada — reduza a velocidade</span>`:`<span style="color:var(--ok)">Pista seca e boa aderência</span>`;
   $("drv").textContent=E.wind>35?"Vento forte no corredor: cuidado em viadutos":E.rain>=40?"Atenção redobrada e distância maior":"Visibilidade normal no corredor metropolitano";
@@ -257,18 +358,6 @@ function render(){
 }
 function addMin(hm,m){const [h,mi]=hm.split(":").map(Number);const t=h*60+mi+m;return pad(Math.floor(t/60))+":"+pad(t%60)}
 function pick(k){S.modeSel=k;render()}
-function closeM(){$("modal").classList.remove("open")}
-$("alertBtn").onclick=()=>{
-  const o=orig(),d=dest();
-  $("modalBody").innerHTML=`<p class="mut" style="font-size:14px;margin-bottom:12px">O app não tem acesso gratuito a acidentes em tempo real. Abra uma fonte ao vivo para o seu trajeto:</p>
-  <div class="row" style="flex-direction:column;align-items:stretch">
-  <a class="btn" target="_blank" rel="noopener" style="text-decoration:none" href="https://www.waze.com/live-map/directions?to=ll.${d.lat}%2C${d.lon}&from=ll.${o.lat}%2C${o.lon}">Waze — mapa ao vivo ↗</a>
-  <a class="btn" target="_blank" rel="noopener" style="text-decoration:none" href="https://www.google.com/maps/dir/?api=1&travelmode=driving&origin=${encodeURIComponent(o.q)}&destination=${encodeURIComponent(d.q)}">Google Maps — trânsito ↗</a>
-  <a class="btn" target="_blank" rel="noopener" style="text-decoration:none" href="https://prefeitura.pbh.gov.br/bhtrans">BHTrans ↗</a></div>
-  <p class="mut" style="font-size:13px;margin-top:12px">Pontos críticos do corredor: entroncamento BR-040 / retorno da Denise Cristina; LMG-806; Av. Vilarinho; Av. Padre Pedro Pinto.</p>`;
-  $("modal").classList.add("open");
-};
-$("modal").onclick=e=>{if(e.target.id==="modal")closeM()};
 $("swap").onclick=async()=>{S.invert=!S.invert;S.modeSel=null;await refresh(true)};
 $("refresh").onclick=()=>{S.modeSel=null;refresh(true)};
 document.querySelectorAll("#metaSeg button").forEach(b=>b.onclick=()=>{S.meta=b.dataset.m;S.modeSel=null;render()});
@@ -277,6 +366,63 @@ async function refresh(show){
   const ok=await load();
   if(ok){render();$("load").style.cssText="opacity:0;pointer-events:none"}
 }
+function autoAlerts(E){
+  const A=[],d=E.G.drive;
+  if(d&&d.staticMin&&d.min/d.staticMin>=1.25)A.push(`Google: trânsito ${Math.round(d.min-d.staticMin)} min acima do normal`);
+  if(!d&&E.tf>=1.5)A.push("Horário de pico neste sentido (estimativa)");
+  if(E.rain>=60)A.push(`Chuva provável (${E.rain}%)`);
+  if(E.mm>=2)A.push("Chuva forte no horário da saída");
+  if(E.wind>40)A.push(`Vento forte (${Math.round(E.wind)} km/h)`);
+  return A;
+}
+function renderAlerts(E,AU){
+  const man=activeAlerts();
+  $("alertList").innerHTML=AU.map(t=>`<div class="alrt auto"><div>⚠ ${esc(t)}<div class="mut" style="font-size:12px">automático</div></div></div>`).join("")
+   +man.map(a=>`<div class="alrt man"><div>${esc(ALERT_TYPES[a.type]?ALERT_TYPES[a.type][0]:a.type)}${a.text?" — "+esc(a.text):""}<div class="mut" style="font-size:12px">há ${Math.max(0,Math.round((Date.now()-a.t)/60000))} min • ${a.min>0?"+"+a.min+" min no ETA":"sem impacto no ETA"} • expira em ${Math.max(0,Math.round((TTL-(Date.now()-a.t))/60000))} min</div></div><button class="btn" aria-label="Remover" onclick="delAlert(${a.id})">✕</button></div>`).join("")
+   ||"";
+  if(!AU.length&&!man.length)$("alertList").innerHTML=`<div class="mut" style="font-size:14px">Nenhum alerta ativo.</div>`;
+}
+function renderExtra(E){
+  $("etaBreak").innerHTML=`<small>Composição do ETA (carro) • confiança ${E.conf}</small>`+E.brk.map(x=>`<div class="row sp" style="font-size:14px;margin-top:4px"><span>${esc(x.l)}</span><b>${x.plus&&x.v>0?"+":""}${dm(x.v)}</b></div>`).join("")+`<div class="mut" style="font-size:12px;margin-top:6px">Os outros modais derivam desta base. Fontes: ${E.G.drive?"Google Routes":"OSRM + padrão de horário"}, Open-Meteo e alertas ativos.</div>`;
+  const L=E.G.transit&&E.G.transit.lines;
+  $("busLines").innerHTML=L&&L.length?`Linhas sugeridas pelo Google: <b>${L.map(esc).join(", ")}</b>`:`<span class="mut">Para ver as linhas reais aqui, informe a chave do Google em “Trânsito ao vivo”.</span>`;
+  const o=orig(),d=dest();
+  $("gmapsLink").href=`https://www.google.com/maps/dir/?api=1&travelmode=driving&origin=${encodeURIComponent(o.q)}&destination=${encodeURIComponent(d.q)}`;
+  $("wazeLink").href=`https://www.waze.com/live-map/directions?to=ll.${d.lat}%2C${d.lon}&from=ll.${o.lat}%2C${o.lon}`;
+  $("gStatus").textContent=!GKEY?"Sem chave: usando OSRM + padrão de horário (confiança baixa).":S.route.g.drive?`✔ Google ativo: carro ${dm(S.route.g.drive.min)} com trânsito (${dm(S.route.g.drive.staticMin||S.route.g.drive.min)} sem trânsito).`:`✖ Falha no Google: ${S.route.gerr||"erro desconhecido"}`;
+}
+function delAlert(id){ALERTS=ALERTS.filter(a=>a.id!==id);store.set("mt_alerts",ALERTS);render()}
+$("alType").onchange=()=>{$("alMin").value=ALERT_TYPES[$("alType").value][1]};
+$("alAdd").onclick=()=>{
+  ALERTS.push({id:Date.now(),t:Date.now(),type:$("alType").value,min:Math.max(0,Math.min(60,parseInt($("alMin").value)||0)),text:$("alText").value.trim().slice(0,140)});
+  store.set("mt_alerts",ALERTS);$("alText").value="";S.modeSel=null;render();
+};
+$("alertBtn").onclick=()=>$("alertsCard").scrollIntoView({behavior:"smooth",block:"start"});
+$("gSave").onclick=()=>{GKEY=$("gkey").value.trim();store.set("mt_gkey",GKEY);refresh(true)};
+$("gClear").onclick=()=>{GKEY="";$("gkey").value="";store.set("mt_gkey","");refresh(true)};
+$("gkey").value=GKEY;
+$("wazeBtn").onclick=()=>{
+  const w=$("wazeBox");
+  if(w.firstChild){w.innerHTML="";$("wazeBtn").textContent="Carregar mapa Waze ao vivo";return}
+  w.innerHTML='<iframe class="waze" loading="lazy" title="Mapa Waze ao vivo" src="https://embed.waze.com/iframe?zoom=12&lat=-19.795&lon=-44.02&ct=livemap"></iframe>';
+  $("wazeBtn").textContent="Ocultar mapa Waze";
+};
+function renderCams(){
+  $("camList").innerHTML=CAMS.length?CAMS.map((c,i)=>{
+    const isImg=/\.(jpe?g|png|gif|webp)(\?|$)|snapshot|mjpe?g|\/image/i.test(c.url);
+    const media=isImg?`<img data-src="${esc(c.url)}" src="${esc(c.url)}" alt="${esc(c.name)}" style="width:100%;border-radius:10px;margin-top:8px">`:`<iframe src="${esc(c.url)}" loading="lazy" sandbox="allow-scripts allow-same-origin" title="${esc(c.name)}" style="width:100%;aspect-ratio:16/9;border:0;border-radius:10px;margin-top:8px"></iframe>`;
+    return `<div class="info"><div class="row sp"><b>${esc(c.name)}</b><span class="row"><a href="${esc(c.url)}" target="_blank" rel="noopener">abrir ↗</a><button class="btn" aria-label="Remover" onclick="delCam(${i})">✕</button></span></div>${media}</div>`}).join(""):`<div class="mut" style="font-size:14px">Nenhuma câmera adicionada.</div>`;
+}
+function delCam(i){CAMS.splice(i,1);store.set("mt_cams",CAMS);renderCams()}
+$("camAdd").onclick=()=>{
+  const url=$("camUrl").value.trim();
+  if(!/^https?:\/\/\S+$/i.test(url)){$("camUrl").style.borderColor="var(--bad)";return}
+  $("camUrl").style.borderColor="";
+  CAMS.push({name:$("camName").value.trim()||"Câmera",url});store.set("mt_cams",CAMS);
+  $("camName").value="";$("camUrl").value="";renderCams();
+};
+setInterval(()=>document.querySelectorAll("#camList img[data-src]").forEach(im=>{const u=im.dataset.src;im.src=u+(u.includes("?")?"&":"?")+"_="+Date.now()}),30000);
+renderCams();
 S.meta=defaultMeta();
 refresh(true);
 setInterval(()=>{if(!document.hidden)refresh(false)},10*60*1000);
