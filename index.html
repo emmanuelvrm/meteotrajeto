@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MeteoTrajeto</title>
+<style>
+:root{--bg:#070b1a;--card:#0d1430;--card2:#111a3a;--line:#1f2b55;--tx:#e8ecf8;--mut:#8a96bd;--blue:#3b9cf2;--ok:#34d399;--warn:#fbbf24;--bad:#e5384f}
+*{box-sizing:border-box;margin:0}
+body{background:radial-gradient(1200px 600px at 50% -10%,#14204a,var(--bg));color:var(--tx);font-family:Inter,system-ui,Segoe UI,Roboto,sans-serif;min-height:100vh;padding:16px}
+.wrap{max-width:760px;margin:0 auto;display:grid;gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px}
+h1{font-size:26px}h2{font-size:17px}
+.mut{color:var(--mut)}.mono{font-family:ui-monospace,Menlo,monospace}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.sp{justify-content:space-between}
+.logo{width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#3b82f6,#6366f1);display:grid;place-items:center;font-size:24px}
+.live{font-size:11px;font-weight:700;color:var(--ok);border:1px solid #14532d;background:#0b2a22;padding:2px 8px;border-radius:99px}
+button{font:inherit;color:var(--tx);cursor:pointer}
+.seg{display:flex;border:1px solid var(--line);border-radius:14px;padding:4px;gap:4px}
+.seg button{background:none;border:0;border-radius:10px;padding:9px 12px;font-size:13px;color:var(--mut)}
+.seg button.on{background:var(--blue);color:#fff;font-weight:600}
+.btn{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+.addr{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:stretch}
+.addr .pt{background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.addr small{color:var(--mut);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.swap{align-self:center;width:46px;height:46px;border-radius:50%;background:var(--blue);border:0;font-size:20px}
+.status{border:1px solid;border-radius:16px;padding:14px}
+.status.ok{border-color:#14532d;background:#0a2420;color:var(--ok)}
+.status.warn{border-color:#7a5a12;background:#241b0d;color:var(--warn)}
+.status.bad{border-color:#7f1d2b;background:#2a0d15;color:#ff6b81}
+.status b{display:block;text-transform:uppercase;font-size:15px;margin-bottom:4px}
+.status span{color:var(--tx);opacity:.85;font-size:14px}
+.big{font-size:44px;font-weight:700;letter-spacing:.03em}
+.eta{color:var(--blue)}
+.modes{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.mode{background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:12px 6px;text-align:center;position:relative}
+.mode.sel{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue) inset}
+.mode .ic{font-size:24px}.mode .t{font-weight:700;font-size:15px;margin-top:4px}.mode .n{font-size:12px;color:var(--mut)}
+.mode.best::after{content:"Recomendado";position:absolute;top:-9px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;background:var(--ok);color:#04251a;padding:2px 8px;border-radius:99px;white-space:nowrap}
+.mode.late{opacity:.55}.mode.late .t{color:#ff6b81}
+.alert{width:100%;border-radius:14px;padding:14px;border:1px solid var(--line);background:var(--card2);font-weight:600;text-align:left}
+.alert.red{background:#c8304a;border-color:#e5384f}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.info{background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:12px}
+.info small{color:var(--mut)}.info div{font-weight:600;margin-top:2px}
+.temp{font-size:52px;font-weight:700}
+.tag{font-size:11px;font-weight:700;padding:3px 8px;border-radius:8px;border:1px solid var(--line);background:var(--card2);color:var(--blue)}
+.hours{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px}
+.hr{min-width:64px;text-align:center;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:8px 4px;font-size:13px}
+.hr.dep{border-color:var(--blue)}
+.days{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.reasons li{margin-left:18px;font-size:14px;margin-top:4px}
+.modal{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;padding:16px;z-index:9}
+.modal.open{display:flex}.modal .card{max-width:480px;width:100%}
+a{color:var(--blue)}
+#load{position:fixed;inset:0;background:var(--bg);display:grid;place-items:center;z-index:20;text-align:center;transition:opacity .4s}
+.radar{width:90px;height:90px;border-radius:50%;border:2px solid var(--blue);margin:0 auto 14px;background:conic-gradient(from 0deg,#3b9cf277,transparent 40%);animation:sp 1.4s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media(max-width:520px){.addr{grid-template-columns:1fr}.swap{justify-self:center;transform:rotate(90deg)}.modes{grid-template-columns:repeat(2,1fr)}.big{font-size:38px}}
+</style>
+</head>
+<body>
+<div id="load"><div><div class="radar"></div><div id="loadtxt" class="mut">Consultando clima e rota…</div></div></div>
+<div class="wrap">
+  <div class="card">
+    <div class="row sp">
+      <div class="row"><div class="logo">⛈</div><div><div class="row"><h1>MeteoTrajeto</h1><span class="live" id="live">AO VIVO</span></div><div class="mut" id="sub"></div></div></div>
+      <div class="row"><div class="seg" id="metaSeg"><button data-m="13:00">Meta 13:00</button><button data-m="08:00">Meta 08:00</button></div><button class="btn" id="refresh" title="Atualizar">⟳</button></div>
+    </div>
+    <div class="addr" style="margin-top:14px">
+      <div class="pt"><small>Origem</small><div id="oTxt"></div></div>
+      <button class="swap" id="swap" title="Inverter origem e destino">⇄</button>
+      <div class="pt"><small>Destino</small><div id="dTxt"></div></div>
+    </div>
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <div class="card">
+    <div class="row" style="gap:8px"><span class="tag" id="depTag"></span><span class="tag" id="qTag"></span></div>
+    <div class="row" style="gap:28px;margin-top:12px;align-items:flex-end">
+      <div><div class="mut mono" style="font-size:12px">SAÍDA PREVISTA</div><div class="big" id="dep"></div></div>
+      <div><div class="mut mono eta" style="font-size:12px">CHEGADA ESTIMADA (ETA)</div><div class="big eta" id="eta"></div></div>
+      <div class="mut" style="font-size:14px">Duração: <b id="dur" style="color:var(--tx)"></b><br>Distância: <b class="mono" id="dist" style="color:var(--tx)"></b></div>
+    </div>
+    <div class="mut" style="margin:18px 0 10px;font-size:14px">Melhor meio de transporte agora (toque para comparar):</div>
+    <div class="modes" id="modes"></div>
+    <ul class="reasons" id="reasons" style="margin-top:14px"></ul>
+    <button class="alert" id="alertBtn" style="margin-top:14px"></button>
+    <div class="grid2" style="margin-top:12px">
+      <div class="info"><small>Condição do asfalto</small><div id="road"></div></div>
+      <div class="info"><small>Recomendação ao condutor</small><div id="drv"></div></div>
+    </div>
+  </div>
+
+  <div class="card" id="busCard" style="display:none">
+    <h2>🚌 Ônibus</h2>
+    <div class="mut" style="font-size:14px;margin:4px 0 10px">Estimativa de tempo (caminhada + espera + trajeto). Linhas e horários reais abrem no Google Maps com o seu endereço.</div>
+    <a id="busLink" class="btn" style="display:inline-block;text-decoration:none" target="_blank" rel="noopener">Ver linhas de ônibus agora ↗</a>
+  </div>
+
+  <div class="grid2" id="wx"></div>
+
+  <div class="card"><h2>Previsão horária no trajeto</h2><div class="mut" style="font-size:13px;margin-bottom:10px">A partir da saída prevista</div><div class="hours" id="hours"></div></div>
+  <div class="grid2" id="stats"></div>
+  <div class="card"><h2>Tendência para os próximos dias</h2><div class="days" id="days" style="margin-top:12px"></div></div>
+  <div class="mut" style="font-size:12px;text-align:center;padding:8px">Clima: Open-Meteo • Rota: OSRM/OpenStreetMap • Trânsito: estimativa por horário (sem API em tempo real) • <span id="upd"></span></div>
+</div>
+
+<div class="modal" id="modal"><div class="card"><div class="row sp"><h2>Ocorrências no trajeto</h2><button class="btn" onclick="closeM()">✕</button></div><div id="modalBody" style="margin-top:12px"></div></div></div>
+
+<script>
+// ---------- Configuração ----------
+const PLACES={
+  florenca:{label:"Rua Sessenta e Seis, 105 — Florença, Ribeirão das Neves",short:"Bairro Florença",city:"Ribeirão das Neves",alt:830,lat:-19.7769,lon:-44.0911,q:"Rua Sessenta e Seis 105, Florença, Ribeirão das Neves, MG"},
+  venda:{label:"Av. Padre Pedro Pinto, 1500 — Venda Nova, BH",short:"Região de Venda Nova",city:"Belo Horizonte",alt:780,lat:-19.8161,lon:-43.9546,q:"Avenida Padre Pedro Pinto 1500, Venda Nova, Belo Horizonte, MG"}
+};
+const FALLBACK={km:24,min:38}; // se OSRM estiver indisponível
+const MODES={
+  carro:{ic:"🚗",n:"Carro"},moto:{ic:"🏍️",n:"Moto"},onibus:{ic:"🚌",n:"Ônibus"},bike:{ic:"🚴",n:"Bike"}
+};
+const WMO={0:["Céu limpo","☀️"],1:["Predomínio de sol","🌤️"],2:["Parcialmente nublado","⛅"],3:["Nublado","☁️"],45:["Neblina","🌫️"],48:["Neblina","🌫️"],51:["Garoa","🌦️"],53:["Garoa","🌦️"],55:["Garoa forte","🌦️"],61:["Chuva fraca","🌧️"],63:["Chuva","🌧️"],65:["Chuva forte","🌧️"],80:["Pancadas","🌧️"],81:["Pancadas","🌧️"],82:["Pancadas fortes","⛈️"],95:["Tempestade","⛈️"],96:["Tempestade c/ granizo","⛈️"],99:["Tempestade c/ granizo","⛈️"]};
+const wmo=c=>WMO[c]||WMO[Math.floor(c/10)*10]||["—","❓"];
+
+const S={invert:false,meta:null,modeSel:null,data:null,route:null,best:null};
+const $=id=>document.getElementById(id);
+const pad=n=>String(n).padStart(2,"0");
+const hhmm=d=>pad(d.getHours())+":"+pad(d.getMinutes());
+const dm=m=>{m=Math.round(m);return m>=60?Math.floor(m/60)+"h "+pad(m%60)+"min":m+" min"};
+const orig=()=>S.invert?PLACES.venda:PLACES.florenca;
+const dest=()=>S.invert?PLACES.florenca:PLACES.venda;
+
+// ---------- Dados ----------
+async function jget(url,ms=9000){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);try{const r=await fetch(url,{signal:c.signal});if(!r.ok)throw 0;return await r.json()}finally{clearTimeout(t)}}
+async function loadWeather(p){
+  const u=`https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}&current=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,surface_pressure&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max&timezone=America%2FSao_Paulo&forecast_days=6&wind_speed_unit=kmh`;
+  return jget(u);
+}
+async function loadRoute(){
+  const a=PLACES.florenca,b=PLACES.venda;
+  const [p,q]=S.invert?[b,a]:[a,b];
+  try{const j=await jget(`https://router.project-osrm.org/route/v1/driving/${p.lon},${p.lat};${q.lon},${q.lat}?overview=false`);const r=j.routes[0];return{km:r.distance/1000,min:r.duration/60,live:true}}
+  catch(e){return{km:FALLBACK.km,min:FALLBACK.min,live:false}}
+}
+async function load(){
+  $("loadtxt").textContent="Consultando clima e rota…";
+  const [wo,wd,route]=await Promise.allSettled([loadWeather(orig()),loadWeather(dest()),loadRoute()]);
+  if(wo.status!=="fulfilled"||wd.status!=="fulfilled"){$("live").textContent="OFFLINE";$("live").style.color="var(--bad)";$("loadtxt").textContent="Sem conexão com a Open-Meteo. Toque em ⟳ para tentar de novo.";return false}
+  $("live").textContent="AO VIVO";$("live").style.color="";
+  S.data={o:wo.value,d:wd.value};S.route=route.value;S.queryTime=new Date();
+  return true;
+}
+
+// ---------- Trânsito por horário (heurística) ----------
+function trafficFactor(d){
+  const h=d.getHours()+d.getMinutes()/60,dow=d.getDay();
+  if(dow===0)return 1.0;
+  if(dow===6)return h>=10&&h<=13?1.2:1.05;
+  const dir=S.invert; // sentido
+  const manha=h>=5.5&&h<=9.0, tarde=h>=16.5&&h<=19.5;
+  // Neves→BH pesa de manhã; BH→Neves pesa à tarde
+  if(manha) return dir?1.2:1.6;
+  if(tarde) return dir?1.6:1.2;
+  if(h>=11.5&&h<=14) return 1.25;
+  return 1.1;
+}
+// ---------- Estimativa por modal ----------
+function wxAt(data,when){ // tempo na hora de saída
+  const H=data.hourly,t=when.getTime();let bi=0,bd=1e18;
+  H.time.forEach((s,i)=>{const d=Math.abs(new Date(s).getTime()-t);if(d<bd){bd=d;bi=i}});
+  return{i:bi,pp:H.precipitation_probability[bi]||0,mm:H.precipitation[bi]||0,wind:H.wind_speed_10m[bi]||0,temp:H.temperature_2m[bi],code:H.weather_code[bi]};
+}
+function evaluate(){
+  const now=new Date(),dep=new Date(now.getTime()+15*60000);
+  const tf=trafficFactor(dep);
+  const wo=wxAt(S.data.o,dep),wd=wxAt(S.data.d,dep);
+  const rain=Math.max(wo.pp,wd.pp),mm=Math.max(wo.mm,wd.mm),wind=Math.max(wo.wind,wd.wind),temp=Math.min(wo.temp,wd.temp);
+  const R=S.route,car=R.min*tf;
+  const T={
+    carro:{min:car},
+    moto:{min:car*0.78},
+    onibus:{min:8+10+Math.max(car*1.35,R.min*1.3)+8}, // caminhada + espera + trajeto + caminhada
+    bike:{min:R.km/17*60}
+  };
+  // limite de pontualidade
+  const lim=limitDate(dep);
+  const rows={};
+  for(const k in T){
+    const eta=new Date(dep.getTime()+T[k].min*60000);
+    let pen=0;const why=[];
+    if(k==="moto"){ if(rain>=40||mm>=0.3){pen+=40+rain/2;why.push("chuva aumenta o risco de moto")} if(wind>35){pen+=15;why.push("vento forte")} if(temp<12){pen+=10;why.push("frio")} }
+    if(k==="bike"){ if(rain>=30||mm>=0.2)pen+=60; if(R.km>12)pen+=40; if(temp>31)pen+=15; if(wind>25)pen+=10; why.push(R.km>12?"distância longa para bike":""); }
+    if(k==="onibus"){ if(rain>=40)pen-=8; if(tf>1.4)pen-=4; } // ônibus protege da chuva
+    if(k==="carro"){ if(rain>=40)pen-=6; if(tf>=1.5)pen+=6; }
+    const late=eta>lim;
+    rows[k]={min:T[k].min,eta,late,score:T[k].min+pen+(late?500:0),pen};
+  }
+  const best=Object.keys(rows).sort((a,b)=>rows[a].score-rows[b].score)[0];
+  return{now,dep,tf,rain,mm,wind,temp,wo,wd,rows,best,lim};
+}
+function limitDate(dep){
+  const [h,m]=S.meta.split(":").map(Number);
+  const l=new Date(dep);l.setHours(h,m+15,0,0);
+  if(l<dep)l.setDate(l.getDate()+1);
+  return l;
+}
+function metaDate(dep){const [h,m]=S.meta.split(":").map(Number);const d=new Date(dep);d.setHours(h,m,0,0);if(d<dep)d.setDate(d.getDate()+1);return d}
+function defaultMeta(){return new Date().getHours()<10?"08:00":"13:00"}
+
+// ---------- Render ----------
+function render(){
+  const E=evaluate();S.E=E;
+  const sel=S.modeSel||E.best,R=S.route,M=E.rows[sel];
+  $("sub").textContent=`${S.invert?"Venda Nova (Belo Horizonte) ⇄ Florença (Ribeirão das Neves)":"Florença (Ribeirão das Neves) ⇄ Venda Nova (Belo Horizonte)"}`;
+  $("oTxt").textContent=orig().label;$("dTxt").textContent=dest().label;
+  document.querySelectorAll("#metaSeg button").forEach(b=>{b.classList.toggle("on",b.dataset.m===S.meta);b.innerHTML=`Meta ${b.dataset.m} <span style="font-size:11px;opacity:.8">(lim. ${addMin(b.dataset.m,15)})</span>`});
+  // status
+  const meta=metaDate(E.dep),lim=E.lim,over=(M.eta-lim)/60000,toMeta=(M.eta-meta)/60000;
+  const st=$("status");
+  if(M.eta<=meta){st.className="status ok";st.innerHTML=`<b>✔ Chegada no horário previsto (sem atraso)</b><span>${MODES[sel].n}: ETA às ${hhmm(M.eta)} (${Math.round(-toMeta)} min de folga em relação à meta de ${S.meta}).</span> <span class="mono" style="float:right;font-size:12px">Meta: ${S.meta} | Limite: ${hhmm(lim)}</span>`}
+  else if(M.eta<=lim){st.className="status warn";st.innerHTML=`<b>⏱ Dentro da margem de tolerância (${Math.round((lim-M.eta)/60000)} min restantes)</b><span>${MODES[sel].n}: ETA às ${hhmm(M.eta)}. Dentro do limite (${hhmm(lim)}), mas sem folga.</span>`}
+  else{st.className="status bad";st.innerHTML=`<b>✖ Atraso previsto (${Math.round(over)} min além do limite)</b><span>${MODES[sel].n}: ETA às ${hhmm(M.eta)}; limite ${hhmm(lim)}. ${E.best!==sel?"Veja o modal recomendado abaixo.":"Nenhum modal chega a tempo; saia o quanto antes."}</span>`}
+  $("depTag").textContent="⏰ Partida em +15 min";
+  $("qTag").textContent=`Trânsito: ${E.tf>=1.5?"pesado":E.tf>=1.2?"moderado":"fluindo"} (estimado ×${E.tf.toFixed(2)})`;
+  $("dep").textContent=hhmm(E.dep);$("eta").textContent=hhmm(M.eta);
+  $("dur").textContent=dm(M.min);$("dist").textContent=(sel==="onibus"?R.km*1.15:R.km).toFixed(1)+" km";
+  // modos
+  $("modes").innerHTML=Object.keys(MODES).map(k=>{const r=E.rows[k];return `<button class="mode ${k===sel?"sel":""} ${k===E.best?"best":""} ${r.late?"late":""}" onclick="pick('${k}')"><div class="ic">${MODES[k].ic}</div><div class="t">${MODES[k].n}</div><div class="n">${dm(r.min)} • ${hhmm(r.eta)}</div></button>`}).join("");
+  // razões
+  const w=[];
+  w.push(`${wmo(E.wo.code)[1]} Chuva: ${E.rain}% de chance${E.mm>0?` (${E.mm.toFixed(1)} mm/h)`:""} • vento ${Math.round(E.wind)} km/h • ${Math.round(E.temp)}°C`);
+  if(E.best===sel)w.push(`<b>${MODES[sel].n}</b> é o melhor modal: ${E.rows[sel].late?"nenhum chega no limite, mas é o mais rápido":"chega "+(E.rows[sel].eta<=meta?"antes da meta":"dentro da tolerância")+" e é o mais adequado ao clima"}.`);
+  else w.push(`Você escolheu ${MODES[sel].n}; o recomendado é <b>${MODES[E.best].n}</b> (${dm(E.rows[E.best].min)}, chega ${hhmm(E.rows[E.best].eta)}).`);
+  if(E.rows.moto.pen>=40)w.push("🏍️ Moto penalizada pela chuva/vento.");
+  if(E.rows.bike.pen>=40)w.push("🚴 Bike pouco viável (distância e/ou clima).");
+  $("reasons").innerHTML=w.map(x=>`<li>${x}</li>`).join("");
+  // alerta
+  const heavy=E.tf>=1.5;
+  $("alertBtn").className="alert"+((heavy||E.rain>=60||E.wind>40)?" red":"");
+  $("alertBtn").innerHTML=`⚠ Alertas de rota: ${(heavy||E.rain>=60||E.wind>40)?"atenção — "+[heavy&&"horário de pico",E.rain>=60&&"chuva provável",E.wind>40&&"vento forte"].filter(Boolean).join(", "):"nenhum alerta por clima/horário"} <span class="mut" style="font-weight:400;display:block;font-size:12px;margin-top:2px">Toque para abrir acidentes/obras em tempo real (Waze / Google Maps)</span>`;
+  const wet=E.wo.mm>0.1||E.wd.mm>0.1||E.rain>=50;
+  $("road").innerHTML=wet?`<span style="color:var(--warn)">Pista molhada — reduza a velocidade</span>`:`<span style="color:var(--ok)">Pista seca e boa aderência</span>`;
+  $("drv").textContent=E.wind>35?"Vento forte no corredor: cuidado em viadutos":E.rain>=40?"Atenção redobrada e distância maior":"Visibilidade normal no corredor metropolitano";
+  // ônibus
+  $("busCard").style.display=sel==="onibus"?"block":"none";
+  $("busLink").href="https://www.google.com/maps/dir/?api=1&travelmode=transit&origin="+encodeURIComponent(orig().q)+"&destination="+encodeURIComponent(dest().q);
+  // clima origem/destino
+  $("wx").innerHTML=[["ORIGEM",orig(),S.data.o],["DESTINO",dest(),S.data.d]].map(([t,p,d])=>{const c=d.current,w=wmo(c.weather_code);return `<div class="card"><div class="row sp"><div><span class="tag">${t}</span> <span class="mut" style="font-size:12px">Alt: ~${p.alt}m</span></div><div style="font-size:38px">${w[1]}</div></div><h2 style="margin-top:8px">${p.short}</h2><div class="mut" style="font-size:13px">${p.city}</div><div class="row" style="align-items:flex-end;margin:6px 0"><div class="temp">${Math.round(c.temperature_2m)}°C</div><div class="mut">Sensação: <b style="color:var(--tx)">${Math.round(c.apparent_temperature)}°C</b><br><span style="color:var(--blue)">${w[0]}</span></div></div><div class="grid2" style="grid-template-columns:repeat(3,1fr)"><div class="info"><small>Umidade</small><div>${c.relative_humidity_2m}%</div></div><div class="info"><small>Vento</small><div>${Math.round(c.wind_speed_10m)} km/h</div></div><div class="info"><small>Índice UV</small><div style="color:var(--warn)">${Math.round(d.daily.uv_index_max[0])}</div></div></div></div>`}).join("");
+  // horas
+  const H=S.data.o.hourly,i0=E.wo.i;
+  $("hours").innerHTML=Array.from({length:12},(_,k)=>i0+k).filter(i=>H.time[i]).map((i,k)=>`<div class="hr ${k===0?"dep":""}"><div class="mut">${H.time[i].slice(11,16)}</div><div style="font-size:22px">${wmo(H.weather_code[i])[1]}</div><b>${Math.round(H.temperature_2m[i])}°</b><div style="color:var(--blue);font-size:12px">💧${H.precipitation_probability[i]||0}%</div></div>`).join("");
+  const c=S.data.o.current,pp=S.data.o.daily.precipitation_probability_max[0];
+  $("stats").innerHTML=`<div class="info"><small>Chance de chuva (hoje)</small><div style="font-size:26px">${pp}%</div><span style="color:${pp>=50?"var(--warn)":"var(--ok)"};font-size:13px">${pp>=50?"Leve guarda-chuva":"Sem chuva no momento"}</span></div><div class="info"><small>Pressão barométrica</small><div style="font-size:26px">${Math.round(c.surface_pressure)} hPa</div><span class="mut" style="font-size:13px">Medida na origem</span></div>`;
+  const D=S.data.o.daily;
+  $("days").innerHTML=D.time.slice(1,6).map((t,i)=>{const j=i+1,dd=new Date(t+"T12:00");return `<div class="hr"><div class="mut">${["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"][dd.getDay()]}</div><div style="font-size:22px">${wmo(D.weather_code[j])[1]}</div><b>${Math.round(D.temperature_2m_max[j])}°</b><span class="mut">${Math.round(D.temperature_2m_min[j])}°</span><div style="color:var(--blue);font-size:12px">💧${D.precipitation_probability_max[j]}%</div></div>`}).join("");
+  $("upd").textContent="Consulta às "+hhmm(S.queryTime)+(S.route.live?"":" (rota estimada)");
+}
+function addMin(hm,m){const [h,mi]=hm.split(":").map(Number);const t=h*60+mi+m;return pad(Math.floor(t/60))+":"+pad(t%60)}
+function pick(k){S.modeSel=k;render()}
+function closeM(){$("modal").classList.remove("open")}
+$("alertBtn").onclick=()=>{
+  const o=orig(),d=dest();
+  $("modalBody").innerHTML=`<p class="mut" style="font-size:14px;margin-bottom:12px">O app não tem acesso gratuito a acidentes em tempo real. Abra uma fonte ao vivo para o seu trajeto:</p>
+  <div class="row" style="flex-direction:column;align-items:stretch">
+  <a class="btn" target="_blank" rel="noopener" style="text-decoration:none" href="https://www.waze.com/live-map/directions?to=ll.${d.lat}%2C${d.lon}&from=ll.${o.lat}%2C${o.lon}">Waze — mapa ao vivo ↗</a>
+  <a class="btn" target="_blank" rel="noopener" style="text-decoration:none" href="https://www.google.com/maps/dir/?api=1&travelmode=driving&origin=${encodeURIComponent(o.q)}&destination=${encodeURIComponent(d.q)}">Google Maps — trânsito ↗</a>
+  <a class="btn" target="_blank" rel="noopener" style="text-decoration:none" href="https://prefeitura.pbh.gov.br/bhtrans">BHTrans ↗</a></div>
+  <p class="mut" style="font-size:13px;margin-top:12px">Pontos críticos do corredor: entroncamento BR-040 / retorno da Denise Cristina; LMG-806; Av. Vilarinho; Av. Padre Pedro Pinto.</p>`;
+  $("modal").classList.add("open");
+};
+$("modal").onclick=e=>{if(e.target.id==="modal")closeM()};
+$("swap").onclick=async()=>{S.invert=!S.invert;S.modeSel=null;await refresh(true)};
+$("refresh").onclick=()=>{S.modeSel=null;refresh(true)};
+document.querySelectorAll("#metaSeg button").forEach(b=>b.onclick=()=>{S.meta=b.dataset.m;S.modeSel=null;render()});
+async function refresh(show){
+  if(show){$("load").style.cssText="opacity:1;pointer-events:auto"}
+  const ok=await load();
+  if(ok){render();$("load").style.cssText="opacity:0;pointer-events:none"}
+}
+S.meta=defaultMeta();
+refresh(true);
+setInterval(()=>{if(!document.hidden)refresh(false)},10*60*1000);
+</script>
+</body>
+</html>
